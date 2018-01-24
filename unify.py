@@ -62,20 +62,28 @@ if not skip_strings:
             (idx, values) = cols[col]
             dataframe.insert(loc=idx, column=col, value=values)
     else:
+        # just plain nominal to ordinal conversion
         for col in dataframe.columns:
             vals = {}
             cur_val = 0
 
             # dtype("O"): object, which is kind of string
             if dataframe[col].dtype == "O" and col not in skip_cols:
-                # it's a sting and we need to convert it
-                for (idx, line) in enumerate(dataframe[col]):
-                    if line not in vals:
+                # sort the lines, such that the same lines are grouped
+                rows = sorted(dataframe[col][:])
+
+                old_line = None
+                for line in rows:
+                    # if the last line was different from the current line,
+                    # we have to assign a new integer
+                    if old_line is None or old_line != line:
                         vals[line] = cur_val
                         cur_val += 1
 
-                    # replace the strings by numbers
-                    dataframe.replace({col: vals}, inplace=True)
+                    old_line = line
+
+                # replace the strings by numbers
+                dataframe.replace({col: vals}, inplace=True)
 
 # rename the columns
 if rename_all:
