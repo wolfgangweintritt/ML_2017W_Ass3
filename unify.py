@@ -2,8 +2,8 @@
 """Rename the columns of a data set to fit a unified schema"""
 
 import argparse
-import pandas as pd
 import csv
+import pandas as pd
 
 
 # set up the argument parser
@@ -22,6 +22,8 @@ parser.add_argument("--skip-strings", "-s", action="store_true",
                     default=False, help="Skip the string replacment by numeric values")
 parser.add_argument("--skip-columns", "-S", metavar="COLS", type=str, default="",
                     help="Skip the string replacement for the specified columns (comma-separated list)")
+parser.add_argument("--drop", "-d", metavar="COLS", type=str, default="",
+                    help="Drop the specified columns from the data set (comma-separated list)")
 parser.add_argument("dataset", metavar="DATASET", type=str,
                     help="The data set to standardize")
 parser.add_argument("classname", metavar="CLASS", type=str,
@@ -36,17 +38,26 @@ out_file = args.output_file
 method = args.method
 skip_strings = args.skip_strings
 skip_cols = args.skip_columns
+drop_cols = args.drop
 try:
     # parse the comma-separated list and discard empty values
     skip_cols = [c for c in skip_cols.split(",") if c != ""]
 except:
     skip_cols = []
+try:
+    drop_cols = [c for c in drop_cols.split(",") if c != ""]
+except:
+    drop_cols = []
 
 # read the data set
 dataframe = pd.read_csv(dataset)
 
 # the class name should always be renamed to "Class"
 mapping = {class_name: "Class"}
+
+# if given, drop the specified columns
+if drop_cols:
+    dataframe.drop(columns=drop_cols, inplace=True)
 
 # do the string replacement before renaming (b/c skipping columns is name-based)
 if not skip_strings:
@@ -104,7 +115,10 @@ result = dataframe.to_csv(index=False, quoting=csv.QUOTE_NONNUMERIC)
 
 # print the result to stdout or a file
 if out_file is None or out_file == "-":
-    print(result)
+    try:
+        print(result)
+    except BrokenPipeError:
+        pass
 else:
     with open(out_file, "w") as f:
         f.writelines(result)
