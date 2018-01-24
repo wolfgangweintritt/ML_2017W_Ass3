@@ -3,6 +3,7 @@
 
 import argparse
 import pandas as pd
+import csv
 
 
 # set up the argument parser
@@ -96,7 +97,10 @@ if rename_all:
 
 # rename the columns of the data set
 dataframe.rename(index=str, columns=mapping, inplace=True)
-result = dataframe.to_csv()
+
+# index = False                  to prevent printing the line number
+# quoting = csv.QUOTE_NONNUMERIC to use quotes on non-numeric rows
+result = dataframe.to_csv(index=False, quoting=csv.QUOTE_NONNUMERIC)
 
 # print the result to stdout or a file
 if out_file is None or out_file == "-":
