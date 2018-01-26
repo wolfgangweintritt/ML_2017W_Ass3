@@ -39,6 +39,7 @@ def datasets_in_path(path):
     datasets = {}
     files = glob.glob(os.path.join(path, "*.csv"))
     for f in files:
+        debug("Reading file: %s" % f)
         basename = os.path.basename(f)
         dataset = pd.read_csv(f)
         datasets[basename] = dataset
