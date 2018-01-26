@@ -10,6 +10,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import cross_val_score
+from extract import extractFeatures
 
 
 dbg = True
@@ -95,8 +96,12 @@ classifiers = {"K-Nearest Neighbour": knn,
                "Random Forest": rf,
                "Naive Bayes": nb}
 
+
+meta_learning_dataset = pd.DataFrame()
 best_classifiers = {}
 for data_name, dataframe in datasets.items():
+    meta_features = extractFeatures(dataframe)
+
     # split the data set into features and class
     # and check if we have enough instances per class to do 10-fold CV
     # (if not, lower k)
@@ -132,6 +137,15 @@ for data_name, dataframe in datasets.items():
     print()
 
     print("=" * 80)
+
+    meta_features["best classifier"] = best
+
+    meta_features_series = pd.Series(meta_features, name=data_name)
+    meta_learning_dataset = meta_learning_dataset.append(meta_features_series)
+
+
+meta_learning_dataset.to_csv("metaLearning.csv", index=False)
+
 
 print()
 print("Summary, Best Classifiers:")

@@ -1,104 +1,96 @@
 #!/usr/bin/env python3
 """Extract features out of datasets"""
 
+import sys
 import argparse
 import pandas as pd
 import numpy as np
 from scipy import stats
 
+DATASET_PATH = "./datasets/testing/test.csv"
 
-# set up the argument parser
-descr = "Extract features out of datasets"
-epilog = "2018 - Georg Faustmann"
+def main():
+    # read the data set
+    dataframe = pd.read_csv(DATASET_PATH)
 
-parser = argparse.ArgumentParser(description=descr, epilog=epilog)
-parser.add_argument("--all", "-a", action="store_true", default=False,
-                    help="Standardize other feature names too (to V1..Vn)")
-parser.add_argument("--output-file", "-o", type=str, default=None,
-                    help="Name of the output file - if none is specified, the result will be printed to stdout")
-parser.add_argument("--one-hot", "-1", dest="method", action="store_const",
-                    const="one-hot", default="convert",
-                    help="If this flag is specified, One-Hot encoding will be used instead of flat conversion to integers")
-parser.add_argument("--skip-strings", "-s", action="store_true",
-                    default=False, help="Skip the string replacment by numeric values")
-parser.add_argument("--skip-columns", "-S", metavar="COLS", type=str, default="",
-                    help="Skip the string replacement for the specified columns (comma-separated list)")
-# parser.add_argument("dataset", metavar="DATASET", type=str,
-#                    help="The data set to standardize")
-
-'''
-# do the argument parsing and initialize options
-args = parser.parse_args()
-rename_all = args.all
-dataset = args.dataset
-class_name = args.classname
-out_file = args.output_file
-method = args.method
-skip_strings = args.skip_strings
-skip_cols = args.skip_columns
-try:
-    # parse the comma-separated list and discard empty values
-    skip_cols = [c for c in skip_cols.split(",") if c != ""]
-except:
-    skip_cols = []
-'''
+    print(extractFeatures(dataframe))
 
 
-# read the data set
-# dataframe = pd.read_csv(dataset)
-dataframe = pd.read_csv("./datasets/testing/test.csv")
+# returns a dictonary which contains all the extracted features out of the given dataset
+def extractFeatures(dataset):
 
-# number of instances
-dataframe.shape[0]
+    output_dic = {}
 
-# number of features
-dataframe.shape[1]
+    # number of instances
+    output_dic["#instances"] = dataset.shape[0]
 
-# number of classes
-dataframe["ID"].unique().size
+    # number of features
+    output_dic["#features"] = dataset.shape[1]
 
-# variance
-for name,col in dataframe.items():
-    print("-------")
-    print(np.var(col))
+    # number of classes
+    output_dic["#classes to predict"] = dataset["ID"].unique().size
 
-print(np.var(dataframe))
+    # variance
+    feature_variances = np.var(dataset)
+    output_dic["min variance"] = feature_variances.min()
+    output_dic["max variance"] = feature_variances.max()
+    output_dic["mean variance"] = feature_variances.mean()
 
-# correlation
-print(dataframe.transpose())
-cor_matrix = np.corrcoef(dataframe.transpose())
-# diagonal is not interesting since it determines the correlation to itself
-cor_matrix = cor_matrix[~np.eye(cor_matrix.shape[0],dtype=bool)].reshape(cor_matrix.shape[0],-1)
-print(cor_matrix)
 
-cor_matrix.min()
-cor_matrix.max()
-cor_matrix.mean()
+    # correlation
+    cor_matrix = np.corrcoef(dataset.transpose())
+    # diagonal is not interesting since it determines the correlation to itself --> remove the diagonal
+    cor_matrix = cor_matrix[~np.eye(cor_matrix.shape[0],dtype=bool)].reshape(cor_matrix.shape[0],-1)
 
-# Scale between features
-delta = dataframe.apply(lambda x: x.max()-x.min())
-print(dataframe.apply(lambda x: x.max()-x.min()))
-relative_diff = delta.min() / delta.max()
+    output_dic["min correlation"] = cor_matrix.min()
+    output_dic["max correlation"] = cor_matrix.max()
+    output_dic["mean correlation"] = cor_matrix.mean()
 
-# Normality Test
-'''
-statistic : float or array
-s^2 + k^2, where s is the z-score returned by skewtest and 
-k is the z-score returned by kurtosistest.
+    # Scale between features, determines the freature with the minimal and maximal range and computes the relative difference of min/max
+    ranges = dataset.apply(lambda x: x.max()-x.min())
 
-pvalue : float or array
-A 2-sided chi squared probability for the hypothesis test.
-'''
-k2, p = stats.normaltest(dataframe)
+    relative_scale_diff = ranges.min() / ranges.max()
+    output_dic["relative scale diff"] = relative_scale_diff
 
-# randomness test
-'''
-D : float
+    # Normality Test
+    '''
+    statistic : float or array
+    s^2 + k^2, where s is the z-score returned by skewtest and 
+    k is the z-score returned by kurtosistest.
+    
+    pvalue : float or array
+    A 2-sided chi squared probability for the hypothesis test.
+    
+    If the p-val is very small, 
+    it means it is unlikely that the data came from a normal distribution.
+    https://stackoverflow.com/questions/12838993/scipy-normaltest-how-is-it-used
+    '''
+    normality_test = dataset.apply(lambda x: stats.normaltest(x))
+    norm_p_value = pd.Series([x[1] for x in normality_test])
 
-KS test statistic, either D, D+ or D-.
+    output_dic["min normality test"] = norm_p_value.min()
+    output_dic["max normality test"] = norm_p_value.max()
+    output_dic["mean normality test"] = norm_p_value.mean()
 
-p-value : float
+    # randomness test
+    '''
+    D : float
+    
+    KS test statistic, either D, D+ or D-.
+    
+    p-value : float
+    
+    One-tailed or two-tailed p-value.
+    '''
+    randomness_test = dataset.apply(lambda x: stats.kstest(x, 'uniform'))
+    rand_p_value = pd.Series([x[1] for x in randomness_test])
 
-One-tailed or two-tailed p-value.
-'''
-print(dataframe.apply(lambda x: stats.kstest(x, 'uniform')))
+    output_dic["min randomness test"] = rand_p_value.min()
+    output_dic["max randomness test"] = rand_p_value.max()
+    output_dic["mean randomness test"] = rand_p_value.mean()
+
+    return output_dic
+
+if __name__ == '__main__':
+    exit = main()
+    sys.exit(exit)
