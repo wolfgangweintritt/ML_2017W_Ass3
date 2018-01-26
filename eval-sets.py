@@ -106,7 +106,6 @@ if config_file is not None and os.path.isfile(config_file):
     (knn_args, mlp_args, rf_args, nb_args) = read_clf_args(config_file)
 
 # set up the classifiers and create Dictionary that assigns them a nice name
-# TODO optionally read different parameters from somewhere (config file?) and apply them
 knn = KNeighborsClassifier(**knn_args)
 mlp = MLPClassifier(**mlp_args)
 rf = RandomForestClassifier(**rf_args)
