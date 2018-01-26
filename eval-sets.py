@@ -11,7 +11,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import cross_val_score
-from extract import extractFeatures
+from util.extract import extractFeatures
 from util.util import read_clf_args
 
 
@@ -73,6 +73,8 @@ parser = argparse.ArgumentParser(description=descr, epilog=epilog)
 parser.add_argument("path", metavar="PATH", type=type_path,
                     nargs="?", default=".",
                     help="The path in which to look for data sets, defaults to working directory")
+parser.add_argument("--output", "-o", metavar="OUTPUT-FILE", type=str, default="meta-learning.csv",
+                    help="The file in which to store the meta-learning data set")
 parser.add_argument("--append", "-a", metavar="DATASET", type=str, default=None,
                     help="The data set consisting of extracted features (aka meta-learning data set)" \
                     " to which the results should be appended as a new 'Class' feature")
@@ -82,7 +84,7 @@ parser.add_argument("--config", "-c", metavar="CONFIG", type=str, default=None,
 # do the argument parsing and initialize options
 args = parser.parse_args()
 path = args.path
-append_file = args.append
+out_file = args.output
 config_file = args.config
 debug("Using path: %s" % path)
 
@@ -93,10 +95,10 @@ for name, dataset in datasets.copy().items():
         print("Warn: Skipping data set '%s' (missing feature: 'Class')" % name)
         del datasets[name]
 
-# if we specified an append-file (i.e. the meta-learning data set where to append the results)
+# if we specified an output-file (i.e. the file in which the extracted features, etc. are stored)
 # then we don't want to use this one as input
-if append_file in datasets:
-    del datasets[append_file]
+if out_file in datasets:
+    del datasets[out_file]
 
 debug(datasets.keys())
 
@@ -165,25 +167,9 @@ for data_name, dataframe in datasets.items():
     meta_features_series = pd.Series(meta_features, name=data_name)
     meta_learning_dataset = meta_learning_dataset.append(meta_features_series)
 
-
-meta_learning_dataset.to_csv("metaLearning.csv", index=False)
-
-
 print()
 print("Summary, Best Classifiers:")
 for (dataset_name, best_classifier) in best_classifiers.items():
     print("> %s: %s" % (dataset_name, best_classifier))
 
-if append_file is not None:
-    if os.path.isfile(append_file):
-        # requires an actual meta-learning dataset with the exact same amount of rows
-        # as there have been data sets
-        append_dataset = pd.read_csv(append_file)
-        values = [v for v in best_classifiers.values()]
-        last_idx = len(append_dataset.columns)
-        append_dataset.insert(loc=last_idx, column="Class", value=values)
-        append_dataset.to_csv(append_file, index=False, quoting=csv.QUOTE_NONNUMERIC)
-    else:
-        print()
-        print("Error: Specified append-file '%s' does not exist!" % append_file)
-        exit(1)
+meta_learning_dataset.to_csv(out_file, index=False, quoting=csv.QUOTE_NONNUMERIC)

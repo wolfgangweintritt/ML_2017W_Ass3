@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 from scipy import stats
 
-DATASET_PATH = "./datasets/testing/test.csv"
+DATASET_PATH = "../datasets/testing/test.csv"
 
 def main():
     # read the data set
@@ -92,5 +92,4 @@ def extractFeatures(dataset):
     return output_dic
 
 if __name__ == '__main__':
-    exit = main()
-    sys.exit(exit)
+    main()
