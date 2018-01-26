@@ -28,7 +28,7 @@ def extractFeatures(dataset):
     output_dic["#features"] = dataset.shape[1]
 
     # number of classes
-    output_dic["#classes to predict"] = dataset["ID"].unique().size
+    output_dic["#classes to predict"] = dataset["Class"].unique().size
 
     # variance
     feature_variances = np.var(dataset)
