@@ -44,6 +44,10 @@ rf_args = {}
 if config is not None and os.path.isfile(config):
     (knn_args, mlp_args, rf_args, nb_args) = read_clf_args(config)
 
+knn_args["n_jobs"] = -1
+rf_args["n_jobs"] = -1
+# mlp does not accept the argument 'n_jobs' :(
+
 knn = KNeighborsClassifier(**knn_args)
 mlp = MLPClassifier(**mlp_args)
 rf = RandomForestClassifier(**rf_args)
