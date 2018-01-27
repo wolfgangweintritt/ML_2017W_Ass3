@@ -59,13 +59,46 @@ mapping = {class_name: "Class"}
 if drop_cols:
     dataframe.drop(columns=drop_cols, inplace=True)
 
+# do the replacement of missing values
+for col in dataframe.columns:
+    missing_value = "?"
+
+    # if there are no missing values in the column, there's nothing to do
+    if missing_value not in dataframe[col]:
+        continue
+
+    if dataframe[col].dtype == "O":
+        # string handling: use most-used value
+        # count the number of occurrences of each value
+        val_occs = {v: 0 for v in set(dataframe[col].values)}
+        for val in dataframe[col]:
+            val_occs[val] += 1
+
+        # find out the most used one
+        most_used = None
+        most_count = 0
+        for (val, cnt) in val_occs.items():
+            if cnt >= most_count:
+                most_used = val
+                most_count = cnt
+
+        dataframe.replace({col: {missing_value: most_used}}, inplace=True)
+    else:
+        # numeric handling: take mean
+        sum_vals = 0
+        for val in dataframe[col]:
+            sum_vals += val
+
+        mean = sum_vals / len(dataframe[col])
+        dataframe.replace({col: {missing_value: mean}}, inplace=True)
+
 # do the string replacement before renaming (b/c skipping columns is name-based)
 if not skip_strings:
     if method == "one-hot":
         # save any columns to skip
         cols = {c: (dataframe.columns.get_loc(c), dataframe[c]) for c in skip_cols}
         dataframe.drop(columns=skip_cols, inplace=True)
-        
+
         # get_dummies from pandas does the one-hot encoding for us
         dataframe = pd.get_dummies(dataframe)
 
