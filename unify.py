@@ -4,6 +4,7 @@
 import argparse
 import csv
 import pandas as pd
+from sklearn.feature_extraction.text import CountVectorizer
 
 
 # set up the argument parser
@@ -24,6 +25,8 @@ parser.add_argument("--skip-columns", "-S", metavar="COLS", type=str, default=""
                     help="Skip the string replacement for the specified columns (comma-separated list)")
 parser.add_argument("--drop", "-d", metavar="COLS", type=str, default="",
                     help="Drop the specified columns from the data set (comma-separated list)")
+parser.add_argument("--text-columns", "-t", metavar="COLS", type=str, default="",
+                    help="Employ text feature extraction on the specified columns (comma-separated list)")
 parser.add_argument("dataset", metavar="DATASET", type=str,
                     help="The data set to standardize")
 parser.add_argument("classname", metavar="CLASS", type=str,
@@ -39,6 +42,7 @@ method = args.method
 skip_strings = args.skip_strings
 skip_cols = args.skip_columns
 drop_cols = args.drop
+text_cols = args.text_columns
 try:
     # parse the comma-separated list and discard empty values
     skip_cols = [c for c in skip_cols.split(",") if c != ""]
@@ -48,6 +52,10 @@ try:
     drop_cols = [c for c in drop_cols.split(",") if c != ""]
 except:
     drop_cols = []
+try:
+    text_cols = [c for c in text_cols.split(",") if c != ""]
+except:
+    text_cols = []
 
 # read the data set
 dataframe = pd.read_csv(dataset)
@@ -91,6 +99,19 @@ for col in dataframe.columns:
 
         mean = sum_vals / len(dataframe[col])
         dataframe.replace({col: {missing_value: mean}}, inplace=True)
+
+# Employ text feature extraction.
+removed_text_cols = {c: (dataframe.columns.get_loc(c), dataframe[c]) for c in text_cols}
+vect = CountVectorizer(min_df=0., max_df=1.0)
+for col in removed_text_cols:
+    (idx, values) = removed_text_cols[col]
+    # CountVectorizer.fit_transform returns a document-term matrix.
+    X = vect.fit_transform(values)
+
+    # insert the new text feature columns at the correct position of the DF
+    dataframe = pd.concat([dataframe.loc[:, :col], pd.DataFrame(X.A), dataframe.loc[:, col:]], axis=1)
+
+dataframe.drop(columns=text_cols, inplace=True)
 
 # do the string replacement before renaming (b/c skipping columns is name-based)
 if not skip_strings:
