@@ -66,3 +66,4 @@ Note that for `eval-sets.py`, a configuration file can be specified optionally w
     * sklearn
     * scipy
     * numpy
+    * imblearn

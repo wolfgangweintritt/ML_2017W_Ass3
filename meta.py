@@ -5,12 +5,14 @@ import warnings
 import argparse
 import os.path
 import pandas as pd
+from imblearn.over_sampling import RandomOverSampler
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.exceptions import ConvergenceWarning
+from numpy import concatenate
 from util.util import read_config, instances_per_class, split_data_set
 
 # make sklearn shut up about their warnings
@@ -26,6 +28,8 @@ parser.add_argument("dataset", metavar="DATASET", type=str, default=None,
                     help="The dataset on which to perform meta-learning")
 parser.add_argument("--no-cross-val", "-n", action="store_true", default=False,
                     help="Do standard training/test split instead of cross-validation")
+parser.add_argument("--add-oversampling", "-o", action="store_true", default=False,
+                    help="Add oversampling to the entire data-set using RandomOversampler")
 parser.add_argument("--config", "-c", metavar="CONFIG", type=str, default=None,
                     help="The configuration file to use for the parameters of the classifiers")
 
@@ -34,6 +38,7 @@ args = parser.parse_args()
 dataset = args.dataset
 config = args.config
 no_cv = args.no_cross_val
+oversample = args.add_oversampling
 
 if not os.path.isfile(dataset):
     print("Error: No such data set: %s" % dataset)
@@ -59,11 +64,16 @@ if config is not None and os.path.isfile(config):
     split = cfg.training_split
     class_name = cfg.target_feature
 
-# read the data set
+# read the data set and do some over-sampling
 data = pd.read_csv(dataset)
 y = data[class_name].values
 X = data.drop(columns=[class_name])
+
+if oversample:
+    X, y = RandomOverSampler().fit_sample(X, y)
+
 (X_train, X_test, y_train, y_test) = train_test_split(X, y, test_size=(1 - split))
+
 
 knn_args["n_jobs"] = -1
 rf_args["n_jobs"] = -1
@@ -78,7 +88,7 @@ classifiers = {"k-Nearest Neighbour": knn,
                "Random Forest": rf}
 
 # set up the parameters for the grid search
-max_cv = min(instances_per_class(data[class_name]))
+max_cv = min(instances_per_class(y))
 max_cv = min(max_cv, cross_val)
 clf_params = {
     "k-Nearest Neighbour": {
@@ -97,12 +107,10 @@ clf_params = {
 }
 
 for name, clf in classifiers.items():
-
     # do the grid-search
-    (set_data, set_targets) = split_data_set(data, class_name)
     params = clf_params[name]
     clf = GridSearchCV(clf, params, scoring=scoring, n_jobs=-1, cv=max_cv)
-    clf.fit(data.drop(columns=[class_name]), data[class_name])
+    clf.fit(X, y)
 
     print("> %s" % name)
     print("Used parameters: %s" % clf.best_params_)
@@ -119,7 +127,7 @@ for name, clf in classifiers.items():
 
     else:
         # cross-validation stuff
-        scores = cross_val_score(clf, set_data, set_targets, cv=max_cv, n_jobs=-1, scoring=scoring)
+        scores = cross_val_score(clf, X, y, cv=max_cv, n_jobs=-1, scoring=scoring)
         score = scores.mean()
 
         print("%d-fold Cross-Validation" % max_cv)
