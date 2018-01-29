@@ -12,7 +12,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import cross_val_score
 from util.extract import extractFeatures
-from util.util import read_clf_args
+from util.util import read_config, instances_per_class, split_data_set
 
 
 
@@ -47,23 +47,6 @@ def datasets_in_path(path):
     return datasets
 
 
-def split_data_set(dataframe):
-    """Split the data frame into features and class"""
-    data = dataframe.drop(columns=["Class"])
-    targets = dataframe["Class"].values
-
-    return (data, targets)
-
-
-def instances_per_class(targets):
-    """Calculate the number of instances per class"""
-    instances = {c: 0 for c in set(targets)}
-    for t in targets:
-        instances[t] += 1
-    
-    return instances.values()
-
-
 # set up the argument parser
 descr = "Run various classifiers over the data sets in a specified directory and " \
         "check which one yields the best performance per data set. " \
@@ -76,9 +59,6 @@ parser.add_argument("path", metavar="PATH", type=type_path,
                     help="The path in which to look for data sets, defaults to working directory")
 parser.add_argument("--output", "-o", metavar="OUTPUT-FILE", type=str, default="meta-learning.csv",
                     help="The file in which to store the meta-learning data set")
-parser.add_argument("--append", "-a", metavar="DATASET", type=str, default=None,
-                    help="The data set consisting of extracted features (aka meta-learning data set)" \
-                    " to which the results should be appended as a new 'Class' feature")
 parser.add_argument("--config", "-c", metavar="CONFIG", type=str, default=None,
                     help="The configuration file to use for the parameters of the classifiers")
 
@@ -89,11 +69,29 @@ out_file = args.output
 config_file = args.config
 debug("Using path: %s" % path)
 
+# read the config
+knn_args = {}
+mlp_args = {}
+rf_args = {}
+nb_args = {}
+cross_val = 10
+scoring = "accuracy"
+class_name = "Class"
+if config_file is not None and os.path.isfile(config_file):
+    cfg = read_config(config_file)
+    knn_args = cfg.knn
+    mlp_args = cfg.mlp
+    rf_args = cfg.rf
+    nb_args = cfg.nb
+    cross_val = cfg.cross_validation
+    scoring = cfg.scoring
+    class_name = cfg.target_feature
+
 datasets = datasets_in_path(path)
 for name, dataset in datasets.copy().items():
-    if "Class" not in dataset.columns:
+    if class_name not in dataset.columns:
         # skip every data set that doesn't fit our schema
-        print("Warn: Skipping data set '%s' (missing feature: 'Class')" % name)
+        print("Warn: Skipping data set '%s' (missing feature: '%s')" % (name, class_name))
         del datasets[name]
 
 # if we specified an output-file (i.e. the file in which the extracted features, etc. are stored)
@@ -102,13 +100,6 @@ if out_file in datasets:
     del datasets[out_file]
 
 debug(datasets.keys())
-
-knn_args = {}
-mlp_args = {}
-rf_args = {}
-nb_args = {}
-if config_file is not None and os.path.isfile(config_file):
-    (knn_args, mlp_args, rf_args, nb_args) = read_clf_args(config_file)
 
 # set up the classifiers and create Dictionary that assigns them a nice name
 knn = KNeighborsClassifier(**knn_args)
@@ -124,26 +115,26 @@ classifiers = {"K-Nearest Neighbour": knn,
 meta_learning_dataset = pd.DataFrame()
 best_classifiers = {}
 for data_name, dataframe in datasets.items():
+    print("Data Set: %s" % data_name)
     meta_features = extractFeatures(dataframe)
 
     # split the data set into features and class
     # and check if we have enough instances per class to do 10-fold CV
     # (if not, lower k)
-    (set_data, set_targets) = split_data_set(dataframe)
+    (set_data, set_targets) = split_data_set(dataframe, class_name)
     max_cv = min(instances_per_class(set_targets))
-    max_cv = min(max_cv, 10)
+    max_cv = min(max_cv, cross_val)
 
     best = None
     best_performance = 0
 
-    print("Data Set: %s" % data_name)
     print("Using %d-fold cross-validation" % max_cv)
     print()
     for clf_name, clf in classifiers.items():
         print("> %s" % clf_name)
         debug("> %s" % clf)
 
-        scores = cross_val_score(clf, set_data, set_targets, cv=max_cv, n_jobs=-1, scoring="accuracy")
+        scores = cross_val_score(clf, set_data, set_targets, cv=max_cv, n_jobs=-1, scoring=scoring)
         # scoring via "f1" causes problems when there are no samples predicted for a class
         # thus, we just take the default "scoring" method of the classifier -> TODO find something better
         
@@ -163,7 +154,7 @@ for data_name, dataframe in datasets.items():
 
     print("=" * 80)
 
-    meta_features["best classifier"] = best
+    meta_features[class_name] = best
 
     meta_features_series = pd.Series(meta_features, name=data_name)
     meta_learning_dataset = meta_learning_dataset.append(meta_features_series)
