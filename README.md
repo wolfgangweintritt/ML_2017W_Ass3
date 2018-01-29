@@ -57,7 +57,7 @@
 * `eval-sets.py`: Reads through all data sets in a path and evaluates the above set of classifiers on each data set. Then proceeds to extract all features from the data set and store the extracted features along with the best-performing classifier per data set in a new CSV file.
 * `unify.py`: Brings the data sets into a unified format (makes sure that there is one 'Class' attribute and string-valued features are converted to numeric features - either per One-Hot encoding or just conversion to integers).
 
-Note that for `eval-sets.py`, a configuration file can be specified optionally which should contain initialisation parameters for the classifiers in JSON-format. An example for such a configuration can be seen in the file `eval-sets.cfg`.
+Note that for `eval-sets.py`, a configuration file can be specified optionally which should contain initialisation parameters for the classifiers in JSON-format. An example for such a configuration can be seen in the file `configuration.cfg`.
 
 ## Requirements
 
