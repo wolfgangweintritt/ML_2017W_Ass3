@@ -1,15 +1,21 @@
 #!/usr/bin/env python
+"""Do some machine-learning on the meta-learning data-sets"""
 
+import warnings
 import argparse
 import os.path
 import pandas as pd
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.exceptions import ConvergenceWarning
 from util.util import read_config, instances_per_class, split_data_set
 
+# make sklearn shut up about their warnings
+for wrn in [RuntimeWarning, ConvergenceWarning, Warning, UserWarning]:
+    warnings.filterwarnings("ignore", category=wrn)
 
 # set up the argument parser
 descr = "Perform basic classification on the meta-learning data set and print the results."
@@ -71,9 +77,35 @@ classifiers = {"k-Nearest Neighbour": knn,
                "Multi-Layer Perceptron": mlp,
                "Random Forest": rf}
 
+# set up the parameters for the grid search
+max_cv = min(instances_per_class(data[class_name]))
+max_cv = min(max_cv, cross_val)
+clf_params = {
+    "k-Nearest Neighbour": {
+        "n_neighbors": [x for x in range(1, max_cv)]
+    },
+    "Multi-Layer Perceptron": {
+        "hidden_layer_sizes": [(1), (5), (10), (100), (100, 100), (100, 100, 100)],
+        "activation": ["identity", "logistic", "tanh", "relu"],
+        "solver": ["lbfgs", "sgd", "adam"],
+        "max_iter": [200, 500, 1000]
+    },
+    "Random Forest": {
+        "n_estimators": [10, 50, 100, 200],
+        "max_depth": [None, 10, 30, 50]
+    }
+}
+
 for name, clf in classifiers.items():
 
+    # do the grid-search
+    (set_data, set_targets) = split_data_set(data, class_name)
+    params = clf_params[name]
+    clf = GridSearchCV(clf, params, scoring=scoring, n_jobs=-1, cv=max_cv)
+    clf.fit(data.drop(columns=[class_name]), data[class_name])
+
     print("> %s" % name)
+    print("Used parameters: %s" % clf.best_params_)
     print()
 
     if no_cv:
@@ -87,9 +119,6 @@ for name, clf in classifiers.items():
 
     else:
         # cross-validation stuff
-        (set_data, set_targets) = split_data_set(data, class_name)
-        max_cv = min(instances_per_class(set_targets))
-        max_cv = min(max_cv, cross_val)
         scores = cross_val_score(clf, set_data, set_targets, cv=max_cv, n_jobs=-1, scoring=scoring)
         score = scores.mean()
 
