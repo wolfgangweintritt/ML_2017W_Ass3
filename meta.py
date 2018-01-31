@@ -5,7 +5,7 @@ import warnings
 import argparse
 import os.path
 import pandas as pd
-from imblearn.over_sampling import RandomOverSampler
+from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
@@ -70,7 +70,7 @@ y = data[class_name].values
 X = data.drop(columns=[class_name])
 
 if oversample:
-    X, y = RandomOverSampler().fit_sample(X, y)
+    X, y = SMOTE(k_neighbors=1).fit_sample(X, y)
 
 (X_train, X_test, y_train, y_test) = train_test_split(X, y, test_size=(1 - split))
 
